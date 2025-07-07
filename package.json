@@ -1,0 +1,28 @@
+{
+  "name": "react-safe-options-fetcher",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "module": "dist/index.es.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "react": "^16.14.0 || ^17.0.0 || ^18.0.0"
+  },
+  "scripts": {
+    "build": "rollup -c"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.0",
+    "@babel/preset-react": "^7.27.1",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "rollup": "^4.44.2",
+    "rollup-plugin-peer-deps-external": "^2.2.4"
+  }
+}
