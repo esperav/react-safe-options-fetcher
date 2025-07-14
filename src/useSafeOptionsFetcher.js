@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { debounce } from 'lodash';
+import { useEffect, useRef, useState } from 'react';
 
 const sortArray = (arr) => arr.sort((a, b) => a.label?.toString().localeCompare(b.label?.toString()));
 
@@ -11,10 +12,10 @@ const hasKeyword = (obj = {}, keyword = "") =>
  * useSafeOptionsFetcher is a custom hook to fetch and filter options safely.
  * It handles API calls, local filtering, and manages loading states.
  * @APIService is the function to call the API
- * @additionalDataName is the name of the additional data to be used for filtering
+ * @customDataName is the name of the additional data to be used for filtering
  */
 
-export const useSafeOptionsFetcher = (APIService, additionalDataName = undefined) => {
+export const useSafeOptionsFetcher = (APIService, customKey = "keyword", customPayload = undefined, customDataName = undefined) => {
     const [options, setOptions] = useState([]);
     const [filteredOptions, setFilteredOptions] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +33,7 @@ export const useSafeOptionsFetcher = (APIService, additionalDataName = undefined
          * proceed to call the api with @keyword as payload
          */
         if (APIService && (!searchGuard.current?.stop || !keyword.startsWith(searchGuard.current?.prevKeyword))) {
-            const res = await APIService(keyword);
+            const res = await APIService(!customPayload ? keyword : { [customKey]: keyword, ...customPayload });
 
             if (currentRequest !== requestCounter.current) return; // Race condition check
 
@@ -41,7 +42,7 @@ export const useSafeOptionsFetcher = (APIService, additionalDataName = undefined
                 const unique = Array.from(new Map(merged.map(item => [item.value, item])).values());
                 const sorted = sortArray(unique);
                 const filtered = sorted.filter(ele => hasKeyword(
-                    additionalDataName ? ele[additionalDataName] : { value: ele.value, label: ele.label }, keyword
+                    customDataName ? ele[customDataName] : { value: ele.value, label: ele.label }, keyword
                 ));
 
                 setOptions(sorted);
@@ -65,7 +66,7 @@ export const useSafeOptionsFetcher = (APIService, additionalDataName = undefined
 
     const filterOptionsLocally = (keyword = '') => {
         const matched = options.filter(ele => hasKeyword(
-            additionalDataName ? ele[additionalDataName] : { value: ele.value, label: ele.label }, keyword
+            customDataName ? ele[customDataName] : { value: ele.value, label: ele.label }, keyword
         ));
         console.log('matched', matched, options);
         //if no option matched the keyword, fetch from api
@@ -89,11 +90,22 @@ export const useSafeOptionsFetcher = (APIService, additionalDataName = undefined
         }
     };
 
+    const debouncedGetOptions = useRef(debounce((keyword = '') => {
+        getOptions(keyword)
+    }, 500)).current;
+
+
+    useEffect(() => {
+        return () => {
+            debouncedGetOptions.cancel(); // prevent memory leaks
+        };
+        //eslint-disable-next-line
+    }, []);
+
     return {
         optionFunction: {
-            setOptions,
-            setFilteredOptions,
-            getOptions
+            getOptions, //fetch options on change input
+            debouncedGetOptions // fetch options on change keyword with 500ms delay
         },
         optionState: {
             options,
