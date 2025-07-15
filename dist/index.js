@@ -1,16 +1,19 @@
 'use strict';
 
+var lodash = require('lodash');
 var react = require('react');
 
 const sortArray = arr => arr.sort((a, b) => a.label?.toString().localeCompare(b.label?.toString()));
 const hasKeyword = (obj = {}, keyword = "") => keyword ? Object.values(obj).some(value => typeof value === 'string' && value?.toLowerCase().includes(keyword?.toLowerCase())) : obj;
 
-/** 
-    * @APIService is the function to call the API
-    * @additionalDataName is the name of the additional data to be used for filtering
-    */
+/**
+ * useSafeOptionsFetcher is a custom hook to fetch and filter options safely.
+ * It handles API calls, local filtering, and manages loading states.
+ * @APIService is the function to call the API
+ * @customDataName is the name of the additional data to be used for filtering
+ */
 
-const useSafeOptionsFetcher = (APIService, additionalDataName = undefined) => {
+const useSafeOptionsFetcher = (APIService, customKey = "keyword", customPayload = undefined, customDataName = undefined) => {
   const [options, setOptions] = react.useState([]);
   const [filteredOptions, setFilteredOptions] = react.useState([]);
   const [isLoading, setIsLoading] = react.useState(false);
@@ -27,14 +30,17 @@ const useSafeOptionsFetcher = (APIService, additionalDataName = undefined) => {
      * proceed to call the api with @keyword as payload
      */
     if (APIService && (!searchGuard.current?.stop || !keyword.startsWith(searchGuard.current?.prevKeyword))) {
-      const res = await APIService(keyword);
+      const res = await APIService(!customPayload ? keyword : {
+        [customKey]: keyword,
+        ...customPayload
+      });
       if (currentRequest !== requestCounter.current) return; // Race condition check
 
       if (res?.length > 0) {
         const merged = [...options, ...res];
         const unique = Array.from(new Map(merged.map(item => [item.value, item])).values());
         const sorted = sortArray(unique);
-        const filtered = sorted.filter(ele => hasKeyword(additionalDataName ? ele[additionalDataName] : {
+        const filtered = sorted.filter(ele => hasKeyword(customDataName ? ele[customDataName] : {
           value: ele.value,
           label: ele.label
         }, keyword));
@@ -59,7 +65,7 @@ const useSafeOptionsFetcher = (APIService, additionalDataName = undefined) => {
     }
   };
   const filterOptionsLocally = (keyword = '') => {
-    const matched = options.filter(ele => hasKeyword(additionalDataName ? ele[additionalDataName] : {
+    const matched = options.filter(ele => hasKeyword(customDataName ? ele[customDataName] : {
       value: ele.value,
       label: ele.label
     }, keyword));
@@ -83,11 +89,20 @@ const useSafeOptionsFetcher = (APIService, additionalDataName = undefined) => {
       getOptionsFromAPI(keyword);
     }
   };
+  const debouncedGetOptions = react.useRef(lodash.debounce((keyword = '') => {
+    getOptions(keyword);
+  }, 500)).current;
+  react.useEffect(() => {
+    return () => {
+      debouncedGetOptions.cancel(); // prevent memory leaks
+    };
+    //eslint-disable-next-line
+  }, []);
   return {
     optionFunction: {
-      setOptions,
-      setFilteredOptions,
-      getOptions
+      getOptions,
+      //fetch options on change input
+      debouncedGetOptions // fetch options on change keyword with 500ms delay
     },
     optionState: {
       options,
