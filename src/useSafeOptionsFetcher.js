@@ -103,7 +103,7 @@ export const useSafeOptionsFetcher = (APIService, customKey = "keyword", customP
     }, []);
 
     return {
-        optionFunction: {
+        dispatch: {
             getOptions, //fetch options on change input
             debouncedGetOptions // fetch options on change keyword with 500ms delay
         },
